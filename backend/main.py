@@ -46,3 +46,21 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return new_user
+
+# --- THE LOGIN ROUTE ---
+@app.post("/login")
+def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    
+    # To find the user by their email
+    user = db.query(models.User).filter(models.User.email == user_credentials.email).first()
+    
+    # Check if user doesn't exist OR if the password is wrong in one swoop
+    if not user or not security.verify_password(user_credentials.password, user.password):
+        # This matches the frontend flow: "invalid email or password -> go to signup"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Invalid email or password"
+        )
+
+    # Successful login!
+    return {"message": f"Welcome back, {user.first_name}!", "email": user.email}
