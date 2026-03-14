@@ -1,18 +1,22 @@
 from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import models, schemas, security, jwt 
 from database import engine, SessionLocal
+from datetime import datetime, timedelta, timezone
 
-# builds the tables in Neondb when the app starts
+# Initialize database schema
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-# opens a temporary connection to Neon for each request
 def get_db():
+    """
+    Yields a database session for incoming requests and ensures 
+    the connection is safely closed afterward.
+    """
     db = SessionLocal()
     try:
         yield db
@@ -88,11 +92,12 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 # --- THE LOGIN ROUTE ---
 @app.post("/login")
-def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+def login(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """
     Authenticates a user and issues both access and refresh tokens.
     """
-    user = db.query(models.User).filter(models.User.email == user_credentials.email).first()
+    # OAuth2 specifies 'username' in the form data, but we use it for the user's email
+    user = db.query(models.User).filter(models.User.email == user_credentials.username).first()
     
     if not user or not security.verify_password(user_credentials.password, user.password):
         raise HTTPException(
@@ -108,7 +113,6 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
         "refresh_token": refresh_token,
         "token_type": "bearer"
     }
-
 
 @app.post("/refresh")
 def refresh_access_token(token_request: schemas.TokenRefreshRequest, db: Session = Depends(get_db)):
@@ -151,3 +155,76 @@ def read_users_me(current_user: models.User = Depends(get_current_user)):
     Protected route: Requires a valid JWT access token.
     """
     return current_user
+
+@app.get("/cards/next", response_model=schemas.FlashcardResponse)
+def fetch_next_card(
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Retrieves the highest priority flashcard for the authenticated user based on next_review_date.
+    """
+    now = datetime.now(timezone.utc)
+    
+    # Query for the user's due cards, ordered by the oldest review date
+    due_progress = db.query(models.UserProgress).filter(
+        models.UserProgress.user_id == current_user.id,
+        models.UserProgress.next_review_date <= now
+    ).order_by(models.UserProgress.next_review_date.asc()).first()
+
+    if due_progress:
+        return due_progress.flashcard
+
+    # Fallback: If no cards are specifically due, grab a random unseen card
+    unseen_card = db.query(models.Flashcard).filter(
+        ~models.Flashcard.progress_records.any(models.UserProgress.user_id == current_user.id)
+    ).first()
+
+    if not unseen_card:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="No cards available to review at this time."
+        )
+        
+    return unseen_card
+
+
+@app.post("/cards/{card_id}/review")
+def submit_card_result(
+    card_id: int, 
+    review: schemas.CardReviewSubmit, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Processes a user's review submission, updates their confidence score, 
+    and calculates the next review date.
+    """
+    # Verify the flashcard exists
+    card = db.query(models.Flashcard).filter(models.Flashcard.id == card_id).first()
+    if not card:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Flashcard not found")
+
+    # Retrieve or create the user's progress record for this card
+    progress = db.query(models.UserProgress).filter(
+        models.UserProgress.user_id == current_user.id,
+        models.UserProgress.flashcard_id == card_id
+    ).first()
+
+    now = datetime.now(timezone.utc)
+
+    if not progress:
+        progress = models.UserProgress(
+            user_id=current_user.id,
+            flashcard_id=card_id,
+        )
+        db.add(progress)
+
+    # MVP Algorithm: Update confidence and push next review 24 hours out
+    # TODO: Implement full Spaced Repetition logic in Phase 3 (Weeks 7-9)
+    progress.confidence_score = review.confidence_score
+    progress.last_reviewed_at = now
+    progress.next_review_date = now + timedelta(days=1)
+
+    db.commit()
+    return {"message": "Review recorded successfully"}

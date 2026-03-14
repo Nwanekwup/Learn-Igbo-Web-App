@@ -1,6 +1,7 @@
 from pydantic import BaseModel, field_validator, EmailStr
 from datetime import datetime
 import re
+from typing import Optional
 
 # --- USERS ---
 # sign up requirements
@@ -73,3 +74,23 @@ class TokenRefreshRequest(BaseModel):
     Schema for validating incoming refresh token requests.
     """
     refresh_token: str
+
+class FlashcardResponse(BaseModel):
+    """
+    Schema for standard outward-facing flashcard data payload.
+    """
+    id: int
+    igbo_word: str
+    english_translation: str
+    pronunciation_guide: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CardReviewSubmit(BaseModel):
+    """
+    Schema for validating incoming review results from the client.
+    Expects a confidence score integer (e.g., 1 to 5).
+    """
+    confidence_score: int
