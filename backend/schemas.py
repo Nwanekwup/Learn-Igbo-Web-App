@@ -67,3 +67,9 @@ class ProgressResponse(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class TokenRefreshRequest(BaseModel):
+    """
+    Schema for validating incoming refresh token requests.
+    """
+    refresh_token: str
