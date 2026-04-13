@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import models, schemas, security, jwt 
 from database import engine, SessionLocal
@@ -9,6 +10,19 @@ from datetime import datetime, timedelta, timezone
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], 
+    allow_headers=["*"],  
+)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -96,7 +110,7 @@ def login(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session =
     """
     Authenticates a user and issues both access and refresh tokens.
     """
-    # OAuth2 specifies 'username' in the form data, but we use it for the user's email
+  
     user = db.query(models.User).filter(models.User.email == user_credentials.username).first()
     
     if not user or not security.verify_password(user_credentials.password, user.password):
