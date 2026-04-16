@@ -8,6 +8,7 @@ function Dashboard() {
   const [currentCard, setCurrentCard] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isFlipped, setIsFlipped] = useState(false);
 
   // Fetch the initial card on component mount
   useEffect(() => {
@@ -78,6 +79,10 @@ function Dashboard() {
             igboWord={currentCard.igbo_word} 
             englishTranslation={currentCard.english_translation} 
             pronunciation={currentCard.pronunciation_guide} 
+            
+            // Add these two lines right here!
+            isFlipped={isFlipped}
+            onFlip={() => setIsFlipped(!isFlipped)}
           />
         ) : (
           <div className="text-gray-500">You have no cards left to review!</div>
