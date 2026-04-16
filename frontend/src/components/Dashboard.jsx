@@ -83,7 +83,7 @@ function Dashboard() {
           <div className="text-gray-500">You have no cards left to review!</div>
         )}
         
-        <p className="mt-8 text-gray-500">Currently studying: Core Vocabulary</p>
+        <p className="mt-8 text-gray-500">Currently studying: Greetings</p>
       </div>
 
     </div>
