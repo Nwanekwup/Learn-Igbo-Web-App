@@ -211,7 +211,7 @@ def submit_card_result(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Demo-optimized Spaced Repetition Algorithm.
+    Spaced Repetition Algorithm.
     Maps session-based learning rules to literal timestamps for live presentations.
     """
     # Verify the flashcard exists
@@ -238,7 +238,7 @@ def submit_card_result(
     progress.confidence_score = review.confidence_score
     progress.last_reviewed_at = now
 
-    # 2. The "emo Hack Algorithm (1 = Didn't Know, 3 = Guessed, 5 = Easy)
+    # 2. The Demo Hack Algorithm (1 = Didn't Know, 3 = Guessed, 5 = Easy)
     score = review.confidence_score
     
     if score == 1:
