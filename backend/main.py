@@ -211,8 +211,8 @@ def submit_card_result(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Processes a user's review submission, updates their confidence score, 
-    and calculates the next review date.
+    Demo-optimized Spaced Repetition Algorithm.
+    Maps session-based learning rules to literal timestamps for live presentations.
     """
     # Verify the flashcard exists
     card = db.query(models.Flashcard).filter(models.Flashcard.id == card_id).first()
@@ -234,11 +234,27 @@ def submit_card_result(
         )
         db.add(progress)
 
-    # MVP Algorithm: Update confidence and push next review 24 hours out
-    # TODO: Implement full Spaced Repetition logic in Phase 3 (Weeks 7-9)
+    # 1. Update the tracking stats
     progress.confidence_score = review.confidence_score
     progress.last_reviewed_at = now
-    progress.next_review_date = now + timedelta(days=1)
+
+    # 2. The "emo Hack Algorithm (1 = Didn't Know, 3 = Guessed, 5 = Easy)
+    score = review.confidence_score
+    
+    if score == 1:
+        time_shift = timedelta(minutes=0)
+    elif score == 3:
+        time_shift = timedelta(minutes=-1)
+    elif score == 5:
+        time_shift = timedelta(minutes=5)
+    else:
+        time_shift = timedelta(minutes=0)
+
+    # 3. Apply the time shift for the live presentation
+    progress.next_review_date = now + time_shift
 
     db.commit()
-    return {"message": "Review recorded successfully"}
+    return {
+        "message": "Review recorded successfully", 
+        "next_review": progress.next_review_date
+    }
