@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.expression import func
 import models, schemas, security, jwt 
 from database import engine, SessionLocal
 from datetime import datetime, timedelta, timezone
@@ -176,28 +177,25 @@ def get_practice_session(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Fetches up to 10 cards for a study session. 
-    Prioritizes cards that are due for review or have never been studied.
+    Retrieves a randomized batch of 10 flashcards for an active study session. 
+    Filters for cards that are strictly due for review or currently unstudied.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     
-    # Grab a pool of available cards
-    all_cards = db.query(models.Flashcard).all()
+    # Execute randomized database query to prevent sequential sorting bias
+    all_cards = db.query(models.Flashcard).order_by(func.random()).all()
     
     session_cards = []
     
     for card in all_cards:
-        # Check the user's progress for this specific card
         progress = db.query(models.UserProgress).filter(
             models.UserProgress.user_id == current_user.id,
             models.UserProgress.flashcard_id == card.id
         ).first()
         
-        # If the card has never been studied, OR if it's past its review date
         if not progress or progress.next_review_date <= now:
             session_cards.append(card)
             
-        # Stop once it hits 10-card session limit
         if len(session_cards) >= 10:
             break
             
@@ -209,11 +207,11 @@ def fetch_next_card(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Retrieves the highest priority flashcard for the authenticated user based on next_review_date.
+    Retrieves the highest priority flashcard for the authenticated user 
+    based on the next_review_date.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     
-    # Query for the user's due cards, ordered by the oldest review date
     due_progress = db.query(models.UserProgress).filter(
         models.UserProgress.user_id == current_user.id,
         models.UserProgress.next_review_date <= now
@@ -222,7 +220,6 @@ def fetch_next_card(
     if due_progress:
         return due_progress.flashcard
 
-    # Fallback: If no cards are specifically due, grab a random unseen card
     unseen_card = db.query(models.Flashcard).filter(
         ~models.Flashcard.progress_records.any(models.UserProgress.user_id == current_user.id)
     ).first()
@@ -244,21 +241,19 @@ def submit_card_result(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Spaced Repetition Algorithm.
+    Processes a spaced repetition card review.
     Maps session-based learning rules to literal timestamps for live presentations.
     """
-    # Verify the flashcard exists
     card = db.query(models.Flashcard).filter(models.Flashcard.id == card_id).first()
     if not card:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Flashcard not found")
 
-    # Retrieve or create the user's progress record for this card
     progress = db.query(models.UserProgress).filter(
         models.UserProgress.user_id == current_user.id,
         models.UserProgress.flashcard_id == card_id
     ).first()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     if not progress:
         progress = models.UserProgress(
@@ -267,11 +262,9 @@ def submit_card_result(
         )
         db.add(progress)
 
-    # 1. Update the tracking stats
     progress.confidence_score = review.confidence_score
     progress.last_reviewed_at = now
 
-    # 2. The Demo Hack Algorithm (1 = Didn't Know, 3 = Guessed, 5 = Easy)
     score = review.confidence_score
     
     if score == 1:
@@ -283,7 +276,6 @@ def submit_card_result(
     else:
         time_shift = timedelta(minutes=0)
 
-    # 3. Apply the time shift for the live presentation
     progress.next_review_date = now + time_shift
 
     db.commit()

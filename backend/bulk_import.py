@@ -40,4 +40,4 @@ def import_csv_to_db(filepath):
         db.close()
 
 if __name__ == "__main__":
-    import_csv_to_db("igbo_vocabulary.csv")
+    import_csv_to_db("igbo_vocabulary_full.csv")
