@@ -170,6 +170,39 @@ def read_users_me(current_user: models.User = Depends(get_current_user)):
     """
     return current_user
 
+@app.get("/cards/session")
+def get_practice_session(
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Fetches up to 10 cards for a study session. 
+    Prioritizes cards that are due for review or have never been studied.
+    """
+    now = datetime.now(timezone.utc)
+    
+    # Grab a pool of available cards
+    all_cards = db.query(models.Flashcard).all()
+    
+    session_cards = []
+    
+    for card in all_cards:
+        # Check the user's progress for this specific card
+        progress = db.query(models.UserProgress).filter(
+            models.UserProgress.user_id == current_user.id,
+            models.UserProgress.flashcard_id == card.id
+        ).first()
+        
+        # If the card has never been studied, OR if it's past its review date
+        if not progress or progress.next_review_date <= now:
+            session_cards.append(card)
+            
+        # Stop once it hits 10-card session limit
+        if len(session_cards) >= 10:
+            break
+            
+    return session_cards
+
 @app.get("/cards/next", response_model=schemas.FlashcardResponse)
 def fetch_next_card(
     db: Session = Depends(get_db), 
