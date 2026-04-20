@@ -198,10 +198,11 @@ def get_user_statistics(
     if total_studied > 0:
         accuracy = round((mastered_cards / total_studied) * 100)
 
-    # 4. Cards Due Right Now
-    due_cards = db.query(models.UserProgress).filter(
+    # 4. "Needs Practice" (Words with confidence score 1 or 2)
+    # This ensures words stay in this count until the user is confident (score 3+)
+    needs_practice_count = db.query(models.UserProgress).filter(
         models.UserProgress.user_id == current_user.id,
-        models.UserProgress.next_review_date <= now
+        models.UserProgress.confidence_score.in_([1, 2])
     ).count()
 
     # 5. Total Dictionary Size
@@ -211,7 +212,7 @@ def get_user_statistics(
         "total_studied": total_studied,
         "accuracy_percentage": accuracy,
         "mastered_cards": mastered_cards,
-        "due_reviews": due_cards,
+        "due_reviews": needs_practice_count,
         "total_dictionary": total_dictionary
     }
 
@@ -251,13 +252,13 @@ def get_hard_practice_session(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Retrieves an uncapped flashcard session containing only the words 
-    the user has marked as 'Didn't Know' (confidence score of 1).
+    Retrieves flashcards the user has marked as 'Didn't Know' (1) 
+    or 'Guessed' (2) to keep them in a persistent practice loop.
     """
-    # Join the Flashcard and UserProgress tables to find struggle words
+    # Updated filter to include both confidence score 1 and 2
     hard_cards = db.query(models.Flashcard).join(models.UserProgress).filter(
         models.UserProgress.user_id == current_user.id,
-        models.UserProgress.confidence_score == 1
+        models.UserProgress.confidence_score.in_([1, 2]) 
     ).order_by(func.random()).all()
     
     return hard_cards

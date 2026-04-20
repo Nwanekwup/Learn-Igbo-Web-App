@@ -7,7 +7,9 @@ function Signup() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState(''); // New state for confirmation
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // State for eye icon toggle
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -15,6 +17,13 @@ function Signup() {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+
+    // Security Check: Ensure passwords match before calling the API
+    if (password !== confirmPassword) {
+      setError("Passwords do not match!");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       await api.post('/signup', {
@@ -41,7 +50,7 @@ function Signup() {
 
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-fuchsia-600 mb-2">
+          <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-r from-violet-600 to-fuchsia-600 mb-2">
             Join Us!
           </h1>
           <p className="text-slate-500 font-medium text-lg">Start your Igbo learning journey</p>
@@ -53,7 +62,7 @@ function Signup() {
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-bold text-slate-500 mb-2 ml-1">First Name</label>
+                <label className="block text-sm font-bold text-slate-500 mb-1 ml-1">First Name</label>
                 <input 
                   type="text" 
                   value={firstName}
@@ -64,7 +73,7 @@ function Signup() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-500 mb-2 ml-1">Last Name</label>
+                <label className="block text-sm font-bold text-slate-500 mb-1 ml-1">Last Name</label>
                 <input 
                   type="text" 
                   value={lastName}
@@ -77,7 +86,7 @@ function Signup() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-500 mb-2 ml-1">Email</label>
+              <label className="block text-sm font-bold text-slate-500 mb-1 ml-1">Email</label>
               <input 
                 type="email" 
                 value={email}
@@ -88,22 +97,43 @@ function Signup() {
               />
             </div>
             
-            <div>
-              <label className="block text-sm font-bold text-slate-500 mb-2 ml-1">Password</label>
+            {/* Password with Eye Icon */}
+            <div className="relative">
+              <label className="block text-sm font-bold text-slate-500 mb-1 ml-1">Password</label>
               <input 
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-violet-500 font-medium transition-all"
                 placeholder="Create a password"
               />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-[46px] text-xl grayscale hover:grayscale-0 transition-all opacity-60 hover:opacity-100"
+              >
+                {showPassword ? "👁️" : "👁️‍🗨️"}
+              </button>
+            </div>
+
+            {/* Confirm Password Field */}
+            <div>
+              <label className="block text-sm font-bold text-slate-500 mb-1 ml-1">Confirm Password</label>
+              <input 
+                type={showPassword ? "text" : "password"} 
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-violet-500 font-medium transition-all"
+                placeholder="Repeat your password"
+              />
             </div>
             
             <button 
               type="submit" 
               disabled={isLoading}
-              className="w-full py-4 mt-4 font-bold text-white transition-all bg-violet-600 rounded-full shadow-lg hover:bg-violet-700 hover:shadow-xl hover:-translate-y-1 disabled:bg-slate-300 disabled:transform-none disabled:shadow-none"
+              className="w-full py-4 mt-2 font-bold text-white transition-all bg-violet-600 rounded-full shadow-lg hover:bg-violet-700 hover:shadow-xl hover:-translate-y-1 disabled:bg-slate-300 disabled:transform-none disabled:shadow-none"
             >
               {isLoading ? 'Creating account...' : 'Sign Up'}
             </button>
