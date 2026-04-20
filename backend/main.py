@@ -171,6 +171,50 @@ def read_users_me(current_user: models.User = Depends(get_current_user)):
     """
     return current_user
 
+@app.get("/users/me/stats")
+def get_user_statistics(
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Calculates and returns the user's learning analytics.
+    Aggregates data from the UserProgress table to generate dashboard metrics.
+    """
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # 1. Total Cards Studied
+    total_studied = db.query(models.UserProgress).filter(
+        models.UserProgress.user_id == current_user.id
+    ).count()
+
+    # 2. Cards Mastered (Confidence Score of 5)
+    mastered_cards = db.query(models.UserProgress).filter(
+        models.UserProgress.user_id == current_user.id,
+        models.UserProgress.confidence_score == 5
+    ).count()
+
+    # 3. Calculate Accuracy Percentage
+    accuracy = 0
+    if total_studied > 0:
+        accuracy = round((mastered_cards / total_studied) * 100)
+
+    # 4. Cards Due Right Now
+    due_cards = db.query(models.UserProgress).filter(
+        models.UserProgress.user_id == current_user.id,
+        models.UserProgress.next_review_date <= now
+    ).count()
+
+    # 5. Total Dictionary Size
+    total_dictionary = db.query(models.Flashcard).count()
+
+    return {
+        "total_studied": total_studied,
+        "accuracy_percentage": accuracy,
+        "mastered_cards": mastered_cards,
+        "due_reviews": due_cards,
+        "total_dictionary": total_dictionary
+    }
+
 @app.get("/cards/session")
 def get_practice_session(
     db: Session = Depends(get_db), 
@@ -200,6 +244,23 @@ def get_practice_session(
             break
             
     return session_cards
+
+@app.get("/cards/session/hard")
+def get_hard_practice_session(
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Retrieves an uncapped flashcard session containing only the words 
+    the user has marked as 'Didn't Know' (confidence score of 1).
+    """
+    # Join the Flashcard and UserProgress tables to find struggle words
+    hard_cards = db.query(models.Flashcard).join(models.UserProgress).filter(
+        models.UserProgress.user_id == current_user.id,
+        models.UserProgress.confidence_score == 1
+    ).order_by(func.random()).all()
+    
+    return hard_cards
 
 @app.get("/cards/next", response_model=schemas.FlashcardResponse)
 def fetch_next_card(
