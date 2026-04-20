@@ -1,6 +1,6 @@
 # Learn Igbo
 
-**Live Product Link:** [https://learn-igbo-web-app.vercel.app/]
+**Live Product Link:** https://learn-igbo-web-app.vercel.app/
 
 ## Project Overview
 [cite_start]Learn Igbo is an interactive language learning web application designed to help users build and retain Igbo vocabulary through a confidence-based algorithm[cite: 95]. [cite_start]The platform utilizes spaced-repetition logic to adapt to a user's specific learning curve, featuring real-time analytics and targeted practice sessions[cite: 106].
